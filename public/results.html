@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Election Results - CampusVote</title>
+  <meta name="description" content="View election results and tally count">
+  <link rel="stylesheet" href="/style.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <header class="navbar">
+    <a href="/login.html" class="brand">
+      <div class="brand-icon">🗳️</div>
+      <span>CampusVote</span>
+    </a>
+    <div class="nav-links">
+      <div id="navLinks" style="display:flex; gap:1.25rem;"></div>
+      <div id="navUser" class="nav-user">Authenticating...</div>
+      <button class="btn-nav-logout" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Election Results & Tally</h1>
+      <p id="resultsSubtitle">Real-time audited candidate breakdown</p>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <!-- Results Section -->
+    <div id="resultsContent" class="glass-card" style="display:none;">
+      
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem; flex-wrap:wrap; gap:1rem;">
+        <div>
+          <span id="votingStatusBadge" class="badge-status badge-closed">Voting Closed</span>
+          <h2 style="font-size:1.4rem; font-weight:800; margin-top:0.5rem; color:#0f172a;">Official Vote Tabulation</h2>
+        </div>
+        <div style="background:#f1f5f9; padding: 0.75rem 1.25rem; border-radius: 12px; text-align:right;">
+          <span style="font-size:0.8rem; color:#64748b; font-weight:600; text-transform:uppercase;">Total Ballots Cast</span>
+          <div id="totalVotesCount" style="font-size:1.8rem; font-weight:800; color:var(--primary);">0</div>
+        </div>
+      </div>
+
+      <div class="results-container">
+        
+        <!-- Left: Leaderboard Breakdown -->
+        <div>
+          <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #1e293b;">Candidate Rankings</h3>
+          <div id="candidateLeaderboard">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Right: Chart.js Bar Chart -->
+        <div>
+          <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #1e293b;">Vote Share Distribution</h3>
+          <div style="background: #ffffff; padding: 1.25rem; border-radius: 14px; border: 1px solid #e2e8f0; min-height: 280px;">
+            <canvas id="resultsChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Hidden / Voting in progress notice -->
+    <div id="votingInProgressNotice" class="glass-card" style="display:none; text-align:center; padding: 3.5rem 2rem;">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">⏳</div>
+      <h2 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 0.75rem; color: #0f172a;">
+        Voting is Currently in Progress
+      </h2>
+      <p style="color: #64748b; font-size: 1.05rem; max-width: 540px; margin: 0 auto 1.75rem;">
+        To ensure fair and impartial voting, election results are kept confidential until the Chief Election Officer officially closes the poll.
+      </p>
+      <div id="actionBtnContainer">
+        <a href="/vote.html" class="btn-primary" style="display:inline-block; width:auto; padding: 0.8rem 1.8rem; text-decoration:none;">
+          Return to Ballot Page &rarr;
+        </a>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    &copy; 2026 CampusVote &bull; College Student Council
+  </footer>
+
+  <script src="/script.js"></script>
+  <script>
+    let chartInstance = null;
+
+    async function initResults() {
+      const user = await getCurrentUser();
+      if (user) {
+        renderNavbar(user);
+      } else {
+        document.getElementById('navUser').innerText = 'Public Observer';
+      }
+
+      fetchResults();
+    }
+
+    async function fetchResults() {
+      try {
+        const res = await fetch('/api/results');
+        const data = await res.json();
+
+        if (res.status === 403 && data.isVotingOpen) {
+          // Voting is still open and student or public cannot see results yet
+          document.getElementById('votingInProgressNotice').style.display = 'block';
+          document.getElementById('resultsContent').style.display = 'none';
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to fetch results');
+        }
+
+        renderResults(data);
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    function renderResults(data) {
+      document.getElementById('votingInProgressNotice').style.display = 'none';
+      document.getElementById('resultsContent').style.display = 'block';
+
+      const statusBadge = document.getElementById('votingStatusBadge');
+      if (data.isVotingOpen) {
+        statusBadge.className = 'badge-status badge-open';
+        statusBadge.innerText = 'Live Feed (Admin View)';
+      } else {
+        statusBadge.className = 'badge-status badge-closed';
+        statusBadge.innerText = 'Official Final Results';
+      }
+
+      document.getElementById('totalVotesCount').innerText = data.totalVotes;
+
+      // Render Leaderboard
+      const leaderboard = document.getElementById('candidateLeaderboard');
+      const candidates = data.candidates || [];
+
+      if (candidates.length === 0) {
+        leaderboard.innerHTML = '<p style="color:#64748b;">No candidates on ballot.</p>';
+      } else {
+        leaderboard.innerHTML = candidates.map((c, index) => `
+          <div class="leader-item">
+            <div class="leader-info">
+              <span style="font-weight:800; width: 24px; color: ${index === 0 ? '#f59e0b' : '#94a3b8'};">
+                #${index + 1}
+              </span>
+              <img src="${c.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}" class="leader-avatar" alt="${c.name}" />
+              <div>
+                <div style="font-weight:700; color:#1e293b;">${c.name} ${index === 0 ? '👑' : ''}</div>
+                <div style="font-size:0.8rem; color:#64748b;">${c.department} &bull; ${c.percentage}% share</div>
+              </div>
+            </div>
+            <div class="leader-count">
+              ${c.voteCount} <span style="font-size:0.75rem; color:#64748b; font-weight:500;">votes</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Render Chart.js
+      renderChart(candidates);
+    }
+
+    function renderChart(candidates) {
+      const ctx = document.getElementById('resultsChart').getContext('2d');
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      const labels = candidates.map(c => c.name);
+      const data = candidates.map(c => c.voteCount);
+      const backgroundColors = [
+        'rgba(79, 70, 229, 0.85)',
+        'rgba(6, 182, 212, 0.85)',
+        'rgba(16, 185, 129, 0.85)',
+        'rgba(245, 158, 11, 0.85)',
+        'rgba(236, 72, 153, 0.85)'
+      ];
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Votes Received',
+            data: data,
+            backgroundColor: backgroundColors.slice(0, labels.length),
+            borderRadius: 8,
+            maxBarThickness: 45
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return ` ${context.parsed.y} votes`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1,
+                font: { family: 'Plus Jakarta Sans' }
+              },
+              grid: {
+                color: '#f1f5f9'
+              }
+            },
+            x: {
+              ticks: {
+                font: { family: 'Plus Jakarta Sans', weight: '600' }
+              },
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+    }
+
+    initResults();
+  </script>
+</body>
+</html>

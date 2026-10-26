@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - CampusVote</title>
+  <meta name="description" content="College Election Commission control dashboard">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header class="navbar">
+    <a href="/admin.html" class="brand">
+      <div class="brand-icon">⚡</div>
+      <span>CampusVote Admin</span>
+    </a>
+    <div class="nav-links">
+      <div id="navLinks" style="display:flex; gap:1.25rem;"></div>
+      <div id="navUser" class="nav-user">Officer Session</div>
+      <button class="btn-nav-logout" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header" style="text-align: left; margin-bottom: 2rem;">
+      <h1>Election Control Center</h1>
+      <p>Manage election status, configure candidate roster, and monitor voter participation.</p>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <!-- Voting Status Toggle Banner -->
+    <div class="election-toggle-bar">
+      <div>
+        <div style="font-size:0.8rem; text-transform:uppercase; color:#94a3b8; font-weight:700;">Voting System State</div>
+        <div style="display:flex; align-items:center; gap:0.75rem; margin-top:0.35rem;">
+          <span id="votingStatusBadge" class="badge-status badge-open">Voting Open</span>
+          <span id="votingStatusDescription" style="color:#cbd5e1; font-size:0.9rem;">Students can submit ballots</span>
+        </div>
+      </div>
+      <div>
+        <button id="toggleVotingBtn" class="btn-toggle btn-toggle-close" onclick="toggleVoting()">
+          🔒 Close Voting & Publish Results
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Metric Overview Cards -->
+    <div class="admin-stats-grid">
+      <div class="stat-card">
+        <span class="stat-title">Eligible Voters</span>
+        <span class="stat-value" id="statTotalStudents">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">Ballots Cast</span>
+        <span class="stat-value" id="statStudentsVoted" style="color:var(--primary);">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">Voter Turnout</span>
+        <span class="stat-value" id="statTurnoutRate" style="color:var(--accent);">0%</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">Active Candidates</span>
+        <span class="stat-value" id="statCandidatesCount">0</span>
+      </div>
+    </div>
+
+    <!-- Candidate Management & Add Candidate Form -->
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: start;">
+      
+      <!-- Candidate Roster Table -->
+      <div class="glass-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+          <h2 style="font-size:1.3rem; font-weight:800; color:#0f172a;">Candidate Roster</h2>
+          <a href="/results.html" style="font-size:0.85rem; font-weight:700; color:var(--primary); text-decoration:none;">View Full Tally &rarr;</a>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Candidate</th>
+                <th>Department</th>
+                <th>Votes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="candidatesTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Add Candidate Form -->
+      <div class="glass-card">
+        <h2 style="font-size:1.3rem; font-weight:800; color:#0f172a; margin-bottom:1rem;">Add Candidate</h2>
+        <form id="addCandidateForm">
+          <div class="form-group">
+            <label class="form-label" for="candName">Full Name</label>
+            <input type="text" id="candName" class="form-input" placeholder="e.g. Rahul Sharma" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="candDept">Department</label>
+            <input type="text" id="candDept" class="form-input" placeholder="e.g. Computer Science (CSE)" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="candManifesto">Manifesto / Agenda</label>
+            <textarea id="candManifesto" class="form-input" rows="3" placeholder="Brief campaign goal..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="candImage">Photo URL (Optional)</label>
+            <input type="url" id="candImage" class="form-input" placeholder="https://images.unsplash.com/..." />
+          </div>
+          <button type="submit" id="addCandBtn" class="btn-primary" style="margin-top:0.5rem;">
+            + Register Candidate
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer>
+    &copy; 2026 CampusVote &bull; Administrative Console
+  </footer>
+
+  <script src="/script.js"></script>
+  <script>
+    let adminUser = null;
+    let isCurrentlyOpen = true;
+
+    async function initAdmin() {
+      adminUser = await requireAuth(['admin']);
+      if (!adminUser) return;
+      renderNavbar(adminUser);
+      loadAdminData();
+    }
+
+    async function loadAdminData() {
+      try {
+        const res = await fetch('/api/admin/stats');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        // Update stats
+        document.getElementById('statTotalStudents').innerText = data.totalStudents;
+        document.getElementById('statStudentsVoted').innerText = data.studentsVoted;
+        document.getElementById('statTurnoutRate').innerText = `${data.turnoutRate}%`;
+        document.getElementById('statCandidatesCount').innerText = data.candidates.length;
+
+        // Update toggle state
+        isCurrentlyOpen = data.isVotingOpen;
+        updateToggleUI(data.isVotingOpen);
+
+        // Render Candidates Table
+        renderCandidatesTable(data.candidates);
+
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    function updateToggleUI(isOpen) {
+      const badge = document.getElementById('votingStatusBadge');
+      const desc = document.getElementById('votingStatusDescription');
+      const btn = document.getElementById('toggleVotingBtn');
+
+      if (isOpen) {
+        badge.className = 'badge-status badge-open';
+        badge.innerText = 'Voting Open';
+        desc.innerText = 'Students can submit ballots';
+        btn.className = 'btn-toggle btn-toggle-close';
+        btn.innerText = '🔒 Close Voting & Publish Results';
+      } else {
+        badge.className = 'badge-status badge-closed';
+        badge.innerText = 'Voting Closed';
+        desc.innerText = 'Polls locked. Results published.';
+        btn.className = 'btn-toggle btn-toggle-open';
+        btn.innerText = '🔓 Reopen Voting';
+      }
+    }
+
+    async function toggleVoting() {
+      const actionText = isCurrentlyOpen ? 'close voting and publish results' : 'reopen voting for students';
+      if (!confirm(`Are you sure you want to ${actionText}?`)) return;
+
+      try {
+        const res = await fetch('/api/admin/toggle-voting', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        showAlert(data.message, 'success');
+        loadAdminData();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    function renderCandidatesTable(candidates) {
+      const tbody = document.getElementById('candidatesTableBody');
+      if (candidates.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No candidates on the ballot.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = candidates.map(c => `
+        <tr>
+          <td>
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <img src="${c.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}" 
+                   style="width:36px; height:36px; border-radius:50%; object-fit:cover;" />
+              <strong>${c.name}</strong>
+            </div>
+          </td>
+          <td>${c.department}</td>
+          <td><strong style="color:var(--primary);">${c.voteCount || 0}</strong></td>
+          <td>
+            <button class="btn-del" onclick="deleteCandidate('${c._id}', '${c.name.replace(/'/g, "\\'")}')">Remove</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function deleteCandidate(id, name) {
+      if (!confirm(`Are you sure you want to remove ${name} from the ballot?`)) return;
+
+      try {
+        const res = await fetch(`/api/admin/candidates/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        showAlert(`Candidate ${name} removed`, 'success');
+        loadAdminData();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    // Add Candidate form submission
+    document.getElementById('addCandidateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      const name = document.getElementById('candName').value.trim();
+      const department = document.getElementById('candDept').value.trim();
+      const manifesto = document.getElementById('candManifesto').value.trim();
+      const image = document.getElementById('candImage').value.trim();
+
+      const btn = document.getElementById('addCandBtn');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/admin/candidates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, department, manifesto, image: image || undefined })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        showAlert(`Candidate ${name} registered successfully!`, 'success');
+        document.getElementById('addCandidateForm').reset();
+        loadAdminData();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    initAdmin();
+  </script>
+</body>
+</html>

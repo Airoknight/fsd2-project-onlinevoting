@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vote - CampusVote College Elections</title>
+  <meta name="description" content="Cast your vote for student council candidates">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header class="navbar">
+    <a href="/vote.html" class="brand">
+      <div class="brand-icon">🗳️</div>
+      <span>CampusVote</span>
+    </a>
+    <div class="nav-links">
+      <div id="navLinks" style="display:flex; gap:1.25rem;"></div>
+      <div id="navUser" class="nav-user">Authenticating...</div>
+      <button class="btn-nav-logout" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1 id="electionTitle">Campus Election 2026</h1>
+      <p id="electionSubtitle">Select one candidate and submit your official ballot.</p>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <!-- Candidate List Container -->
+    <div id="votingSection">
+      <div id="candidatesGrid" class="candidate-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- Confirmation / Already Voted State Container -->
+    <div id="confirmationSection" style="display: none;">
+      <div class="success-card">
+        <div class="success-icon">✓</div>
+        <h2 style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-bottom: 0.5rem;">
+          Vote Submitted Successfully!
+        </h2>
+        <p style="color: #64748b; font-size: 1.05rem; margin-bottom: 1.5rem;">
+          Your choice has been encrypted and securely registered in the election ledger.
+        </p>
+        <div class="alert-box alert-info" style="display:inline-flex; text-align: left; margin-bottom: 2rem;">
+          🔒 Duplicate voting is prohibited. Your ballot is complete.
+        </div>
+        <div>
+          <a href="/results.html" class="btn-primary" style="display:inline-block; width:auto; padding: 0.8rem 1.8rem; text-decoration:none;">
+            View Election Status & Results &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    &copy; 2026 CampusVote &bull; One Student, One Vote Policy
+  </footer>
+
+  <script src="/script.js"></script>
+  <script>
+    let studentUser = null;
+
+    async function initVotingPage() {
+      studentUser = await requireAuth(['student']);
+      if (!studentUser) return;
+      renderNavbar(studentUser);
+
+      // Check election status first
+      try {
+        const statusRes = await fetch('/api/election/status');
+        const statusData = await statusRes.json();
+        if (statusData.title) {
+          document.getElementById('electionTitle').innerText = statusData.title;
+        }
+
+        if (!statusData.isVotingOpen) {
+          showAlert('Voting has been officially closed by the Election Officer. Ballots can no longer be submitted.', 'warning');
+          document.getElementById('votingSection').style.display = 'none';
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      // Check if student has already voted
+      if (studentUser.hasVoted) {
+        showConfirmation();
+        return;
+      }
+
+      // Load candidates
+      loadCandidates();
+    }
+
+    async function loadCandidates() {
+      try {
+        const res = await fetch('/api/candidates');
+        const candidates = await res.json();
+        const grid = document.getElementById('candidatesGrid');
+
+        if (!candidates || candidates.length === 0) {
+          grid.innerHTML = '<div style="color:white; text-align:center; grid-column: 1/-1;">No candidates registered yet. Please check back later.</div>';
+          return;
+        }
+
+        grid.innerHTML = candidates.map(c => `
+          <div class="candidate-card" id="card-${c._id}">
+            <div class="candidate-img-wrapper">
+              <img src="${c.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}" 
+                   alt="${c.name}" class="candidate-img" />
+              <span class="dept-tag">${c.department}</span>
+            </div>
+            <div class="candidate-body">
+              <h3 class="candidate-name">${c.name}</h3>
+              <p class="candidate-manifesto">"${c.manifesto || 'Committed to student empowerment and campus progress.'}"</p>
+              <button class="btn-vote" onclick="castVote('${c._id}', '${c.name.replace(/'/g, "\\'")}')">
+                <span>🗳️</span> Vote for ${c.name.split(' ')[0]}
+              </button>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        showAlert('Failed to load candidate list: ' + err.message, 'danger');
+      }
+    }
+
+    async function castVote(candidateId, candidateName) {
+      const confirmVote = confirm(`Are you sure you want to cast your ballot for ${candidateName}?\n\nThis decision is final and cannot be modified.`);
+      if (!confirmVote) return;
+
+      try {
+        const res = await fetch('/api/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ candidateId })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to submit vote');
+        }
+
+        showConfirmation();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    function showConfirmation() {
+      document.getElementById('votingSection').style.display = 'none';
+      document.getElementById('confirmationSection').style.display = 'block';
+      document.getElementById('electionSubtitle').innerText = 'Ballot Submission Status';
+    }
+
+    initVotingPage();
+  </script>
+</body>
+</html>
