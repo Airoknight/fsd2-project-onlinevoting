@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login & Sign Up - CampusVote</title>
+  <meta name="description" content="Secure login and registration for college election voting system">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .auth-tab-switch {
+      display: flex;
+      background: #f1f5f9;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 1.5rem;
+      border: 1px solid #e2e8f0;
+    }
+    .auth-tab-btn {
+      flex: 1;
+      padding: 0.65rem;
+      border: none;
+      background: transparent;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #64748b;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-tab-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <a href="/login.html" class="brand">
+      <div class="brand-icon">🗳️</div>
+      <span>CampusVote</span>
+    </a>
+    <div style="font-size: 0.85rem; color: #94a3b8;">College Elections 2026</div>
+  </header>
+
+  <main class="container">
+    <div class="login-wrapper">
+      <div class="login-card">
+        
+        <div class="login-header">
+          <span class="badge-pill">Portal Access</span>
+          <h2 id="authHeading">Sign In to Vote</h2>
+          <p id="authSubheading" style="color: #64748b; font-size: 0.9rem; margin-top: 0.35rem;">
+            Enter your College Student ID & Password
+          </p>
+        </div>
+
+        <!-- Toggle between Login and Sign Up -->
+        <div class="auth-tab-switch">
+          <button type="button" class="auth-tab-btn active" id="tabLogin" onclick="switchAuthMode('login')">
+            Log In
+          </button>
+          <button type="button" class="auth-tab-btn" id="tabRegister" onclick="switchAuthMode('register')">
+            Sign Up (New Student)
+          </button>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <!-- Login Form -->
+        <form id="loginForm">
+          <div class="form-group">
+            <label class="form-label" for="loginStudentId">Student ID / Admin Username</label>
+            <input 
+              type="text" 
+              id="loginStudentId" 
+              name="studentId" 
+              class="form-input" 
+              placeholder="e.g. 23CS101 or 25pa5a0519" 
+              required 
+              autocomplete="username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loginPassword">Password</label>
+            <input 
+              type="password" 
+              id="loginPassword" 
+              name="password" 
+              class="form-input" 
+              placeholder="••••••••" 
+              required 
+              autocomplete="current-password"
+            />
+          </div>
+
+          <button type="submit" id="loginBtn" class="btn-primary" style="margin-top: 0.5rem;">
+            Sign In & Proceed &rarr;
+          </button>
+        </form>
+
+        <!-- Registration / Sign Up Form -->
+        <form id="registerForm" style="display: none;">
+          <div class="form-group">
+            <label class="form-label" for="regStudentId">Student ID (Roll Number)</label>
+            <input 
+              type="text" 
+              id="regStudentId" 
+              class="form-input" 
+              placeholder="e.g. 25PA5A0519 or 23CS104" 
+              required 
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regName">Full Name</label>
+            <input 
+              type="text" 
+              id="regName" 
+              class="form-input" 
+              placeholder="e.g. John Doe" 
+              required 
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regPassword">Create Password</label>
+            <input 
+              type="password" 
+              id="regPassword" 
+              class="form-input" 
+              placeholder="At least 4 characters" 
+              required 
+            />
+          </div>
+
+          <button type="submit" id="regBtn" class="btn-primary" style="margin-top: 0.5rem; background: #059669;">
+            Create Account & Enter &rarr;
+          </button>
+        </form>
+
+        <!-- Quick Demo Accounts -->
+        <div class="quick-demo-accounts" id="demoSection">
+          <strong style="color: #334155;">Quick Demo Accounts:</strong>
+          <div style="margin-top: 0.3rem;">Click below to auto-fill pre-seeded credentials:</div>
+          <div class="demo-pills">
+            <button type="button" class="demo-chip" onclick="fillDemo('23CS101', 'student123')">Student (23CS101)</button>
+            <button type="button" class="demo-chip" onclick="fillDemo('23EC201', 'student123')">Student (23EC201)</button>
+            <button type="button" class="demo-chip" onclick="fillDemo('ADMIN', 'admin123')">Officer (ADMIN)</button>
+          </div>
+          <p style="margin-top: 0.6rem; font-size: 0.75rem; color: #94a3b8;">
+            *Predefined students default pwd: <code>student123</code> | Admin: <code>admin123</code>
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    &copy; 2026 CampusVote &bull; Secure College Election Demonstration
+  </footer>
+
+  <script src="/script.js"></script>
+  <script>
+    function switchAuthMode(mode) {
+      clearAlert();
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const tabLogin = document.getElementById('tabLogin');
+      const tabRegister = document.getElementById('tabRegister');
+      const heading = document.getElementById('authHeading');
+      const subheading = document.getElementById('authSubheading');
+      const demoSec = document.getElementById('demoSection');
+
+      if (mode === 'login') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+        heading.innerText = 'Sign In to Vote';
+        subheading.innerText = 'Enter your College Student ID & Password';
+        demoSec.style.display = 'block';
+      } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        tabLogin.classList.remove('active');
+        tabRegister.classList.add('active');
+        heading.innerText = 'Create Voter Account';
+        subheading.innerText = 'Register your Student ID to cast your ballot';
+        demoSec.style.display = 'none';
+      }
+    }
+
+    function fillDemo(id, pass) {
+      switchAuthMode('login');
+      document.getElementById('loginStudentId').value = id;
+      document.getElementById('loginPassword').value = pass;
+    }
+
+    // Check if user is already logged in
+    (async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        if (user.role === 'admin') window.location.href = '/admin.html';
+        else window.location.href = '/vote.html';
+      }
+    })();
+
+    // Login Form Submission
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      const studentId = document.getElementById('loginStudentId').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('loginBtn');
+
+      btn.disabled = true;
+      btn.innerText = 'Authenticating...';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Authentication failed');
+
+        showAlert('Login successful! Redirecting...', 'success');
+        setTimeout(() => {
+          if (data.user.role === 'admin') window.location.href = '/admin.html';
+          else window.location.href = '/vote.html';
+        }, 500);
+
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Sign In & Proceed →';
+      }
+    });
+
+    // Registration Form Submission
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      const studentId = document.getElementById('regStudentId').value.trim();
+      const name = document.getElementById('regName').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const btn = document.getElementById('regBtn');
+
+      btn.disabled = true;
+      btn.innerText = 'Registering Account...';
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId, name, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+        showAlert('Account registered successfully! Redirecting...', 'success');
+        setTimeout(() => {
+          if (data.user.role === 'admin') window.location.href = '/admin.html';
+          else window.location.href = '/vote.html';
+        }, 500);
+
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Create Account & Enter →';
+      }
+    });
+  </script>
+</body>
+</html>
