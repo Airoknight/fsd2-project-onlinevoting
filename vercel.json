@@ -1,23 +1,33 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node"
+      "source": "/",
+      "destination": "/public/login.html"
     },
     {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.js"
+      "source": "/login",
+      "destination": "/public/login.html"
     },
     {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "source": "/vote",
+      "destination": "/public/vote.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/public/admin.html"
+    },
+    {
+      "source": "/results",
+      "destination": "/public/results.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/public/$1"
     }
   ]
 }
